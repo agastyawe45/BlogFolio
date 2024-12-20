@@ -3,6 +3,7 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 import boto3
+import os
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -18,10 +19,10 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # Suppress deprecation war
 db = SQLAlchemy(app)
 
 # AWS S3 Configuration
-S3_BUCKET = "blogfolio143"  # Your actual bucket name
-AWS_ACCESS_KEY = "AKIA2AUOOXJAJ4T6XU7J"  # Your actual access key
-AWS_SECRET_KEY = "eE9kqntEJcHeBJnRMWY5bRR7OCQELVVZJ5xIybQ6"  # Your actual secret key
-AWS_REGION = "us-west-2"  # Your actual region
+S3_BUCKET = os.getenv("S3_BUCKET", "blogfolio143")  # Ensure this matches your actual bucket name
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY", "your-access-key")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "your-secret-key")
+AWS_REGION = os.getenv("AWS_REGION", "us-west-2")  # Add region, ensuring it matches your bucket's actual region
 
 # Initialize boto3 client with the correct region
 s3 = boto3.client(
