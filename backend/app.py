@@ -4,39 +4,34 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
 import boto3
 import os
+import rsa
+import time
+from base64 import b64encode
 
 # Initialize Flask app
 app = Flask(__name__)
 
-# Enable CORS for cross-origin requests
+# Enable CORS
 CORS(app)
 
 # SQLite Database Configuration
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"  # Creates users.db in the current directory
-app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False  # Suppress deprecation warnings
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
-# AWS S3 Configuration
-S3_BUCKET = os.getenv("S3_BUCKET", "blogfolio143")  # Ensure this matches your actual bucket name
-AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY", "your-access-key")
-AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY", "your-secret-key")
-AWS_REGION = os.getenv("AWS_REGION", "us-west-2")  # Add region, ensuring it matches your bucket's actual region
+# AWS S3 and CloudFront Configuration
+UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_NAME", "ase-uploads")  # Bucket for uploaded images
+CONTENT_BUCKET = os.getenv("CONTENT_BUCKET_NAME", "ase-content")  # Bucket with 'regular' and 'premium' folders
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_KEY")
+CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN")
+CLOUDFRONT_KEY_PAIR_ID = os.getenv("CLOUDFRONT_KEY_PAIR_ID")
+PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
 
-# Initialize boto3 client with the correct region
-s3 = boto3.client(
-    "s3",
-    aws_access_key_id=AWS_ACCESS_KEY,
-    aws_secret_access_key=AWS_SECRET_KEY,
-    region_name=AWS_REGION  # Specify the correct region here
-)
-
-try:
-    response = s3.list_buckets()
-    print("Buckets:", [bucket["Name"] for bucket in response["Buckets"]])
-except Exception as e:
-    print("Error initializing S3:", e)
+# Initialize boto3 client
+s3 = boto3.client("s3")
 
 # User Model
 class User(db.Model):
@@ -45,9 +40,9 @@ class User(db.Model):
     password = db.Column(db.String(120), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     account_type = db.Column(db.String(10), nullable=False)
-    profile_image = db.Column(db.String(255), nullable=True)  # URL of the uploaded profile image
+    profile_image = db.Column(db.String(255), nullable=True)  # S3 URL of the uploaded profile image
 
-# Register Endpoint
+# Endpoint: Register
 @app.route("/register", methods=["POST"])
 def register():
     try:
@@ -70,8 +65,8 @@ def register():
             username=data["username"],
             password=hashed_password,
             email=data["email"],
-            account_type=data["accountType"],  # Either "Premium" or "Regular"
-            profile_image=data["profileImage"],  # S3 URL of the uploaded profile image
+            account_type=data["accountType"],
+            profile_image=data["profileImage"],
         )
         db.session.add(new_user)
         db.session.commit()
@@ -81,7 +76,7 @@ def register():
         app.logger.error(f"Error in /register: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
 
-# Login Endpoint
+# Endpoint: Login
 @app.route("/login", methods=["POST"])
 def login():
     try:
@@ -106,6 +101,7 @@ def login():
         app.logger.error(f"Error in /login: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
 
+# Endpoint: Generate S3 Pre-Signed URL for Uploads Bucket
 @app.route("/get-presigned-url", methods=["POST"])
 def get_presigned_url():
     data = request.json
@@ -119,21 +115,61 @@ def get_presigned_url():
         presigned_url = s3.generate_presigned_url(
             "put_object",
             Params={
-                "Bucket": S3_BUCKET,
+                "Bucket": UPLOADS_BUCKET,
                 "Key": filename,
-                "ContentType": "application/octet-stream",  # Adjust as needed for file types
+                "ContentType": "application/octet-stream",
             },
-            ExpiresIn=3600,  # URL expiration time in seconds
+            ExpiresIn=3600,
         )
-        app.logger.info(f"Generated pre-signed URL: {presigned_url}")
         return jsonify({"url": presigned_url}), 200
     except Exception as e:
         app.logger.error(f"Error generating pre-signed URL: {e}")
-        if "region" in str(e).lower():
-            return jsonify({"success": False, "message": "Region mismatch detected. Check bucket region."}), 500
-        elif "signature" in str(e).lower():
-            return jsonify({"success": False, "message": "Signature mismatch. Check AWS credentials and bucket region."}), 500
         return jsonify({"success": False, "message": "Failed to generate pre-signed URL"}), 500
+
+# Endpoint: Generate CloudFront Signed URLs for Content Bucket
+@app.route("/get-signed-urls", methods=["POST"])
+def get_signed_urls():
+    data = request.json
+    account_type = data.get("accountType")
+
+    if not account_type:
+        return jsonify({"success": False, "message": "Account type is required"}), 400
+
+    try:
+        # Define folders based on account type
+        folders = ["regular"]
+        if account_type == "Premium":
+            folders.append("premium")
+
+        files = []
+        for folder in folders:
+            objects = s3.list_objects_v2(Bucket=CONTENT_BUCKET, Prefix=f"{folder}/").get("Contents", [])
+            for obj in objects:
+                file_name = obj["Key"].split("/")[-1]
+                file_path = obj["Key"]
+
+                # Generate signed URL using CloudFront
+                with open(PRIVATE_KEY_PATH, "rb") as key_file:
+                    private_key = rsa.PrivateKey.load_pkcs1(key_file.read())
+
+                expires = int(time.time()) + 3600
+                url = f"https://{CLOUDFRONT_DOMAIN}/{file_path}"
+                policy = f'{{"Statement":[{{"Resource":"{url}","Condition":{{"DateLessThan":{{"AWS:EpochTime":{expires}}}}}}}]}}'
+
+                signature = rsa.sign(policy.encode("utf-8"), private_key, "SHA-1")
+                encoded_signature = b64encode(signature).decode("utf-8")
+
+                signed_url = (
+                    f"{url}?Policy={b64encode(policy.encode('utf-8')).decode('utf-8')}"
+                    f"&Signature={encoded_signature}&Key-Pair-Id={CLOUDFRONT_KEY_PAIR_ID}"
+                )
+
+                files.append({"name": file_name, "url": signed_url})
+
+        return jsonify({"success": True, "files": files}), 200
+    except Exception as e:
+        app.logger.error(f"Error generating signed URLs: {e}")
+        return jsonify({"success": False, "message": "Failed to fetch files."}), 500
 
 if __name__ == "__main__":
     # Create the database tables before running the server
