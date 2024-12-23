@@ -7,6 +7,7 @@ import {
   Box,
   Switch,
   FormControlLabel,
+  CircularProgress,
 } from "@mui/material";
 import axios from "axios";
 import PhoneInput from "react-phone-input-2";
@@ -38,17 +39,28 @@ const Register = () => {
       return null;
     }
 
+    // Validate image size and type
+    if (profileImage.size > 10 * 1024 * 1024) {
+      setMessage("Image size exceeds 10 MB.");
+      return null;
+    }
+    if (!["image/jpeg", "image/png", "image/gif"].includes(profileImage.type)) {
+      setMessage("Invalid image type. Allowed types: jpeg, png, gif.");
+      return null;
+    }
+
     try {
       // Get the pre-signed URL from the backend
       const response = await axios.post("http://localhost:5000/get-presigned-url", {
         filename: profileImage.name,
+        contentType: profileImage.type, // Send content type for validation
       });
       const { url } = response.data;
 
-      // Use fetch for direct PUT request without setting Content-Type
+      // Upload the image to S3 using the pre-signed URL
       const uploadResponse = await fetch(url, {
         method: "PUT",
-        body: profileImage, // Directly pass the file
+        body: profileImage,
       });
 
       if (!uploadResponse.ok) {
@@ -66,6 +78,9 @@ const Register = () => {
   // Handle form submission
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setMessage("");
+
+    // Upload the profile image and get its URL
     const s3ImageUrl = await handleImageUpload();
     if (!s3ImageUrl) {
       setIsSubmitting(false);
@@ -112,17 +127,17 @@ const Register = () => {
         <Typography variant="h4" gutterBottom>
           Create a New User
         </Typography>
-        {message && <Typography color="error">{message}</Typography>}
+        {message && <Typography color={message.includes("successfully") ? "green" : "error"}>{message}</Typography>}
         <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
           <Box>
-            <Typography>Upload photo</Typography>
+            <Typography>Upload Photo</Typography>
             <input
               type="file"
               accept=".jpeg, .jpg, .png, .gif"
               onChange={(e) => setProfileImage(e.target.files[0])}
             />
             <Typography variant="body2">
-              Allowed *.jpeg, *.jpg, *.png, *.gif - max size of 3 Mb
+              Allowed: *.jpeg, *.jpg, *.png, *.gif - max size of 3 MB
             </Typography>
           </Box>
           <Box>
@@ -150,6 +165,7 @@ const Register = () => {
           />
           <TextField
             label="Email Address"
+            type="email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
           />
@@ -202,7 +218,7 @@ const Register = () => {
           sx={{ mt: 3 }}
           disabled={isSubmitting}
         >
-          {isSubmitting ? "Submitting..." : "Create User"}
+          {isSubmitting ? <CircularProgress size={24} /> : "Create User"}
         </Button>
       </Box>
     </Container>
