@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify, redirect, url_for, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
@@ -10,7 +10,7 @@ import json
 from base64 import b64encode
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder="frontend/build")
 
 # Enable CORS
 CORS(app)
@@ -41,34 +41,34 @@ class User(db.Model):
     account_type = db.Column(db.String(10), nullable=False)
     profile_image = db.Column(db.String(255), nullable=True)
 
-# Root Route
-@app.route("/")
-def home():
-    # Redirect to the login route
-    return redirect(url_for("login_page"))
+# Serve React App
+@app.route("/", defaults={"path": ""})
+@app.route("/<path:path>")
+def serve_react_app(path):
+    if path != "" and os.path.exists(app.static_folder + "/" + path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        return send_from_directory(app.static_folder, "index.html")
 
-# Login Page Route
-@app.route("/login", methods=["GET", "POST"])
+# Login API
+@app.route("/api/login", methods=["POST"])
 def login_page():
-    if request.method == "GET":
-        return jsonify({"message": "This is the login page. Implement the frontend here!"})
-    elif request.method == "POST":
-        data = request.json
-        user = User.query.filter_by(username=data.get("username")).first()
-        if user and check_password_hash(user.password, data.get("password")):
-            return jsonify({
-                "success": True,
-                "user": {
-                    "username": user.username,
-                    "email": user.email,
-                    "accountType": user.account_type,
-                    "profileImage": user.profile_image,
-                },
-            })
-        return jsonify({"success": False, "message": "Invalid username or password."}), 401
+    data = request.json
+    user = User.query.filter_by(username=data.get("username")).first()
+    if user and check_password_hash(user.password, data.get("password")):
+        return jsonify({
+            "success": True,
+            "user": {
+                "username": user.username,
+                "email": user.email,
+                "accountType": user.account_type,
+                "profileImage": user.profile_image,
+            },
+        })
+    return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
-# Endpoint: Register
-@app.route("/register", methods=["POST"])
+# Registration API
+@app.route("/api/register", methods=["POST"])
 def register():
     try:
         data = request.json
@@ -93,11 +93,11 @@ def register():
 
         return jsonify({"success": True, "message": "User registered successfully."}), 201
     except Exception as e:
-        app.logger.error(f"Error in /register: {e}")
+        app.logger.error(f"Error in /api/register: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
 
-# Endpoint: Generate S3 Pre-Signed URL
-@app.route("/get-presigned-url", methods=["POST"])
+# Pre-signed URL API
+@app.route("/api/get-presigned-url", methods=["POST"])
 def get_presigned_url():
     data = request.json
     filename = data.get("filename")
@@ -154,8 +154,8 @@ def generate_signed_url(file_path):
         app.logger.error(f"Error generating signed URL: {e}")
         return None
 
-# Endpoint: Generate CloudFront Signed URLs
-@app.route("/get-signed-urls", methods=["POST"])
+# CloudFront Signed URLs API
+@app.route("/api/get-signed-urls", methods=["POST"])
 def get_signed_urls():
     data = request.json
     account_type = data.get("accountType")
