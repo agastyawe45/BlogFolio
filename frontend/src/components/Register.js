@@ -40,7 +40,7 @@ const Register = () => {
     }
 
     // Validate image size and type
-    if (profileImage.size > 10 * 1024 * 1024) {
+    if (profileImage.size > 10 * 1024 * 1024) { // Updated limit to 10 MB
       setMessage("Image size exceeds 10 MB.");
       return null;
     }
@@ -137,7 +137,7 @@ const Register = () => {
               onChange={(e) => setProfileImage(e.target.files[0])}
             />
             <Typography variant="body2">
-              Allowed: *.jpeg, *.jpg, *.png, *.gif - max size of 3 MB
+              Allowed: *.jpeg, *.jpg, *.png, *.gif - max size of 10 MB
             </Typography>
           </Box>
           <Box>
