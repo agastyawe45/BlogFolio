@@ -1,4 +1,3 @@
-// src/components/LoginMaterial.js
 import React, { useState } from "react";
 import {
   Container,
@@ -7,25 +6,35 @@ import {
   Typography,
   Box,
   Link,
+  CircularProgress,
 } from "@mui/material";
 
 const LoginMaterial = ({ onLogin }) => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async () => {
-    const response = await fetch("http://localhost:5000/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await response.json();
+    setIsLoading(true);
+    setMessage("");
+    try {
+      const response = await fetch("http://localhost:5000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await response.json();
 
-    if (data.success) {
-      onLogin(data.user);
-    } else {
-      setMessage(data.message);
+      if (data.success) {
+        onLogin(data.user);
+      } else {
+        setMessage(data.message || "Invalid credentials.");
+      }
+    } catch (error) {
+      setMessage("Error connecting to the server. Please try again later.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -72,8 +81,9 @@ const LoginMaterial = ({ onLogin }) => {
           fullWidth
           sx={{ mt: 2 }}
           onClick={handleLogin}
+          disabled={isLoading}
         >
-          Login
+          {isLoading ? <CircularProgress size={24} /> : "Login"}
         </Button>
         <Link
           sx={{ mt: 2, cursor: "pointer" }}
