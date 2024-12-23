@@ -47,27 +47,24 @@ def home():
     # Redirect to the login route
     return redirect(url_for("login_page"))
 
-# Login page route
+# Login Page Route
 @app.route("/login", methods=["GET", "POST"])
 def login_page():
     if request.method == "GET":
-        # Return a placeholder message or render a login HTML template
         return jsonify({"message": "This is the login page. Implement the frontend here!"})
     elif request.method == "POST":
         data = request.json
-        user = User.query.filter_by(username=data["username"]).first()
-        if user and check_password_hash(user.password, data["password"]):
-            return jsonify(
-                {
-                    "success": True,
-                    "user": {
-                        "username": user.username,
-                        "email": user.email,
-                        "accountType": user.account_type,
-                        "profileImage": user.profile_image,
-                    },
-                }
-            )
+        user = User.query.filter_by(username=data.get("username")).first()
+        if user and check_password_hash(user.password, data.get("password")):
+            return jsonify({
+                "success": True,
+                "user": {
+                    "username": user.username,
+                    "email": user.email,
+                    "accountType": user.account_type,
+                    "profileImage": user.profile_image,
+                },
+            })
         return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
 # Endpoint: Register
