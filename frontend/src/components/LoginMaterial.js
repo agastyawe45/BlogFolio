@@ -15,11 +15,14 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Base URL from environment variable
+  const API_BASE_URL = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
+
   const handleLogin = async () => {
     setIsLoading(true);
     setMessage("");
     try {
-      const response = await fetch("http://localhost:5000/login", {
+      const response = await fetch(`${API_BASE_URL}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
