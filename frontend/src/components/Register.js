@@ -25,22 +25,22 @@ const Register = () => {
     zipCode: "",
     company: "",
     role: "",
-    accountType: "Regular", // Default to Regular
+    accountType: "Regular",
   });
 
   const [profileImage, setProfileImage] = useState(null);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Function to upload the profile image to AWS S3 using a pre-signed URL
+  const apiBaseUrl = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
+
   const handleImageUpload = async () => {
     if (!profileImage) {
       setMessage("Please select a profile image.");
       return null;
     }
 
-    // Validate image size and type
-    if (profileImage.size > 10 * 1024 * 1024) { // Updated limit to 10 MB
+    if (profileImage.size > 10 * 1024 * 1024) {
       setMessage("Image size exceeds 10 MB.");
       return null;
     }
@@ -50,14 +50,12 @@ const Register = () => {
     }
 
     try {
-      // Get the pre-signed URL from the backend
-      const response = await axios.post("http://localhost:5000/get-presigned-url", {
+      const response = await axios.post(`${apiBaseUrl}/get-presigned-url`, {
         filename: profileImage.name,
-        contentType: profileImage.type, // Send content type for validation
+        contentType: profileImage.type,
       });
       const { url } = response.data;
 
-      // Upload the image to S3 using the pre-signed URL
       const uploadResponse = await fetch(url, {
         method: "PUT",
         body: profileImage,
@@ -67,7 +65,7 @@ const Register = () => {
         throw new Error("Failed to upload file to S3.");
       }
 
-      return url.split("?")[0]; // Return the uploaded file's URL
+      return url.split("?")[0];
     } catch (error) {
       console.error("Error uploading image:", error);
       setMessage("Failed to upload profile image.");
@@ -75,12 +73,10 @@ const Register = () => {
     }
   };
 
-  // Handle form submission
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setMessage("");
 
-    // Upload the profile image and get its URL
     const s3ImageUrl = await handleImageUpload();
     if (!s3ImageUrl) {
       setIsSubmitting(false);
@@ -88,8 +84,7 @@ const Register = () => {
     }
 
     try {
-      // Send form data to the backend, including the S3 URL for the profile image
-      const response = await axios.post("http://localhost:5000/register", {
+      const response = await axios.post(`${apiBaseUrl}/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
@@ -127,7 +122,11 @@ const Register = () => {
         <Typography variant="h4" gutterBottom>
           Create a New User
         </Typography>
-        {message && <Typography color={message.includes("successfully") ? "green" : "error"}>{message}</Typography>}
+        {message && (
+          <Typography color={message.includes("successfully") ? "green" : "error"}>
+            {message}
+          </Typography>
+        )}
         <Box display="flex" justifyContent="space-between" alignItems="center" mt={2}>
           <Box>
             <Typography>Upload Photo</Typography>
