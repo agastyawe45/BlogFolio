@@ -1,5 +1,0 @@
-pip install flask flask-sqlalchemy flask-cors werkzeug
-
-pip install flask-cors
-
-pip install --upgrade flask

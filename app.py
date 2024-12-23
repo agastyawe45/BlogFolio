@@ -172,12 +172,10 @@ def get_signed_urls():
         return jsonify({"success": False, "message": "Failed to fetch files."}), 500
 
 if __name__ == "__main__":
-    # Change to backend directory
-    os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), "backend"))
-
     # Create the database tables before running the server
     with app.app_context():
         db.create_all()
 
     # Run the Flask app
     app.run(host="0.0.0.0", port=5000, debug=True)
+
