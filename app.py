@@ -41,6 +41,13 @@ class User(db.Model):
     account_type = db.Column(db.String(10), nullable=False)
     profile_image = db.Column(db.String(255), nullable=True)
 
+
+# Root Route
+@app.route("/", methods=["GET"])
+def root():
+    return jsonify({"message": "Welcome to the Flask Application!"}), 200
+
+
 # Endpoint: Register
 @app.route("/register", methods=["POST"])
 def register():
@@ -70,6 +77,7 @@ def register():
         app.logger.error(f"Error in /register: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
 
+
 # Endpoint: Login
 @app.route("/login", methods=["POST"])
 def login():
@@ -92,6 +100,7 @@ def login():
     except Exception as e:
         app.logger.error(f"Error in /login: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
+
 
 # Endpoint: Generate S3 Pre-Signed URL
 @app.route("/get-presigned-url", methods=["POST"])
@@ -118,6 +127,41 @@ def get_presigned_url():
         app.logger.error(f"Error generating pre-signed URL: {e}")
         return jsonify({"success": False, "message": "Failed to generate pre-signed URL"}), 500
 
+
+# Function: Generate CloudFront Signed URL
+def generate_signed_url(file_path):
+    try:
+        expires = int(time.time()) + 3600
+        url = f"https://{CLOUDFRONT_DOMAIN}/{file_path}"
+        policy = {
+            "Statement": [
+                {
+                    "Resource": url,
+                    "Condition": {
+                        "DateLessThan": {"AWS:EpochTime": expires}
+                    }
+                }
+            ]
+        }
+
+        policy_json = json.dumps(policy)
+        with open(PRIVATE_KEY_PATH, "rb") as key_file:
+            private_key = rsa.PrivateKey.load_pkcs1(key_file.read())
+
+        signature = rsa.sign(policy_json.encode("utf-8"), private_key, "SHA-1")
+        encoded_signature = b64encode(signature).decode("utf-8")
+
+        signed_url = (
+            f"{url}?Policy={b64encode(policy_json.encode('utf-8')).decode('utf-8')}"
+            f"&Signature={encoded_signature}&Key-Pair-Id={CLOUDFRONT_KEY_PAIR_ID}"
+        )
+
+        return signed_url
+    except Exception as e:
+        app.logger.error(f"Error generating signed URL: {e}")
+        return None
+
+
 # Endpoint: Generate CloudFront Signed URLs
 @app.route("/get-signed-urls", methods=["POST"])
 def get_signed_urls():
@@ -139,38 +183,15 @@ def get_signed_urls():
                 file_name = obj["Key"].split("/")[-1]
                 file_path = obj["Key"]
 
-                # Generate signed URL
-                with open(PRIVATE_KEY_PATH, "rb") as key_file:
-                    private_key = rsa.PrivateKey.load_pkcs1(key_file.read())
-
-                expires = int(time.time()) + 3600
-                url = f"https://{CLOUDFRONT_DOMAIN}/{file_path}"
-                policy = {
-                    "Statement": [
-                        {
-                            "Resource": url,
-                            "Condition": {
-                                "DateLessThan": {"AWS:EpochTime": expires}
-                            }
-                        }
-                    ]
-                }
-
-                policy_json = json.dumps(policy)
-                signature = rsa.sign(policy_json.encode("utf-8"), private_key, "SHA-1")
-                encoded_signature = b64encode(signature).decode("utf-8")
-
-                signed_url = (
-                    f"{url}?Policy={b64encode(policy_json.encode('utf-8')).decode('utf-8')}"
-                    f"&Signature={encoded_signature}&Key-Pair-Id={CLOUDFRONT_KEY_PAIR_ID}"
-                )
-
-                files.append({"name": file_name, "url": signed_url})
+                signed_url = generate_signed_url(file_path)
+                if signed_url:
+                    files.append({"name": file_name, "url": signed_url})
 
         return jsonify({"success": True, "files": files}), 200
     except Exception as e:
         app.logger.error(f"Error generating signed URLs: {e}")
         return jsonify({"success": False, "message": "Failed to fetch files."}), 500
+
 
 if __name__ == "__main__":
     with app.app_context():
