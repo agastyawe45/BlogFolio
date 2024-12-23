@@ -1,14 +1,17 @@
-// src/components/Home.js
 import React, { useEffect, useState } from "react";
-import { Container, Typography, Box, Button } from "@mui/material";
+import { Container, Typography, Box, Button, CircularProgress } from "@mui/material";
 import axios from "axios";
 
 const Home = ({ user }) => {
   const [files, setFiles] = useState([]);
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchFiles = async () => {
+      setIsLoading(true);
+      setError("");
+
       try {
         // Fetch signed URLs based on the user's account type
         const response = await axios.post("http://localhost:5000/get-signed-urls", {
@@ -22,7 +25,9 @@ const Home = ({ user }) => {
         }
       } catch (err) {
         console.error("Error fetching signed URLs:", err);
-        setError("Error fetching files.");
+        setError("Error fetching files. Please try again later.");
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -51,10 +56,24 @@ const Home = ({ user }) => {
           <Typography variant="h6" gutterBottom>
             Accessible Files:
           </Typography>
-          {error && <Typography color="error">{error}</Typography>}
-          {files.length > 0 ? (
+          {isLoading ? (
+            <Box display="flex" justifyContent="center" mt={3}>
+              <CircularProgress />
+            </Box>
+          ) : error ? (
+            <Typography color="error">{error}</Typography>
+          ) : files.length > 0 ? (
             files.map((file, index) => (
-              <Box key={index} display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+              <Box
+                key={index}
+                display="flex"
+                justifyContent="space-between"
+                alignItems="center"
+                mb={2}
+                p={1}
+                border={1}
+                borderRadius={2}
+              >
                 <Typography>{file.name}</Typography>
                 <Button variant="contained" color="primary" href={file.url} target="_blank">
                   View
@@ -62,7 +81,7 @@ const Home = ({ user }) => {
               </Box>
             ))
           ) : (
-            <Typography>No files available for your account type.</Typography>
+            <Typography>No files available at the moment.</Typography>
           )}
         </Box>
       </Box>
