@@ -7,6 +7,9 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Base URL from environment variable
+  const API_BASE_URL = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
+
   useEffect(() => {
     const fetchFiles = async () => {
       setIsLoading(true);
@@ -14,7 +17,7 @@ const Home = ({ user }) => {
 
       try {
         // Fetch signed URLs based on the user's account type
-        const response = await axios.post("http://localhost:5000/get-signed-urls", {
+        const response = await axios.post(`${API_BASE_URL}/get-signed-urls`, {
           accountType: user.accountType,
         });
 
@@ -32,7 +35,7 @@ const Home = ({ user }) => {
     };
 
     fetchFiles();
-  }, [user.accountType]);
+  }, [user.accountType, API_BASE_URL]);
 
   return (
     <Container maxWidth="sm">
