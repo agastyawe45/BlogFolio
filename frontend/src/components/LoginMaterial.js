@@ -22,7 +22,7 @@ const LoginMaterial = ({ onLogin }) => {
     setIsLoading(true);
     setMessage("");
     try {
-      const response = await fetch(`${API_BASE_URL}/login`, {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -32,9 +32,10 @@ const LoginMaterial = ({ onLogin }) => {
       if (data.success) {
         onLogin(data.user);
       } else {
-        setMessage(data.message || "Invalid credentials.");
+        setMessage(data.message || "Invalid username or password.");
       }
     } catch (error) {
+      console.error("Error during login:", error);
       setMessage("Error connecting to the server. Please try again later.");
     } finally {
       setIsLoading(false);
