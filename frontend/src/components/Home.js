@@ -7,7 +7,7 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Base URL from environment variable
+  // Base API URL from environment variable
   const API_BASE_URL = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
 
   useEffect(() => {
@@ -78,7 +78,13 @@ const Home = ({ user }) => {
                 borderRadius={2}
               >
                 <Typography>{file.name}</Typography>
-                <Button variant="contained" color="primary" href={file.url} target="_blank">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  href={file.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
                   View
                 </Button>
               </Box>
