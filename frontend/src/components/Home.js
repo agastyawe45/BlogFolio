@@ -8,7 +8,7 @@ const Home = ({ user }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Base API URL from environment variable
-  const API_BASE_URL = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
 
   useEffect(() => {
     const fetchFiles = async () => {
