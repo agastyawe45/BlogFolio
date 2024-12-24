@@ -15,8 +15,8 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Base URL from environment variable
-  const API_BASE_URL = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
+  // Base API URL from environment variable
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
 
   const handleLogin = async () => {
     setIsLoading(true);
