@@ -50,7 +50,7 @@ const Register = () => {
     }
 
     try {
-      const response = await axios.post(`${apiBaseUrl}/get-presigned-url`, {
+      const response = await axios.post(`${apiBaseUrl}/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
@@ -84,7 +84,7 @@ const Register = () => {
     }
 
     try {
-      const response = await axios.post(`${apiBaseUrl}/register`, {
+      const response = await axios.post(`${apiBaseUrl}/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
