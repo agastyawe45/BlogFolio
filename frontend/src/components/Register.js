@@ -32,14 +32,17 @@ const Register = () => {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const apiBaseUrl = process.env.REACT_APP_CLOUDFRONT_DOMAIN;
+  // API base URL from environment variables
+  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
 
+  // Function to handle profile image upload to S3 via pre-signed URL
   const handleImageUpload = async () => {
     if (!profileImage) {
       setMessage("Please select a profile image.");
       return null;
     }
 
+    // Validate file size and type
     if (profileImage.size > 10 * 1024 * 1024) {
       setMessage("Image size exceeds 10 MB.");
       return null;
@@ -50,21 +53,27 @@ const Register = () => {
     }
 
     try {
+      // Request a pre-signed URL from the backend
       const response = await axios.post(`${apiBaseUrl}/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
       const { url } = response.data;
 
+      // Upload the file directly to S3 using the pre-signed URL
       const uploadResponse = await fetch(url, {
         method: "PUT",
         body: profileImage,
+        headers: {
+          "Content-Type": profileImage.type,
+        },
       });
 
       if (!uploadResponse.ok) {
         throw new Error("Failed to upload file to S3.");
       }
 
+      // Return the S3 URL of the uploaded file (without query parameters)
       return url.split("?")[0];
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -73,10 +82,12 @@ const Register = () => {
     }
   };
 
+  // Handle form submission for user registration
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setMessage("");
 
+    // Upload the profile image and get the S3 URL
     const s3ImageUrl = await handleImageUpload();
     if (!s3ImageUrl) {
       setIsSubmitting(false);
@@ -84,6 +95,7 @@ const Register = () => {
     }
 
     try {
+      // Submit the registration form to the backend
       const response = await axios.post(`${apiBaseUrl}/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
@@ -91,6 +103,7 @@ const Register = () => {
 
       if (response.data.success) {
         setMessage("User registered successfully!");
+        // Reset form fields
         setFormData({
           fullName: "",
           email: "",
