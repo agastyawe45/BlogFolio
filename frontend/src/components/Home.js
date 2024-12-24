@@ -17,7 +17,7 @@ const Home = ({ user }) => {
 
       try {
         // Fetch signed URLs based on the user's account type
-        const response = await axios.post(`${API_BASE_URL}/get-signed-urls`, {
+        const response = await axios.post(`${API_BASE_URL}/api/get-signed-urls`, {
           accountType: user.accountType,
         });
 
