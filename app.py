@@ -164,20 +164,26 @@ def get_signed_urls():
         return jsonify({"success": False, "message": "Account type is required"}), 400
 
     try:
-        folders = ["regular"]
-        if account_type == "Premium":
-            folders.append("premium")
-
         files = []
-        for folder in folders:
-            objects = s3.list_objects_v2(Bucket=CONTENT_BUCKET, Prefix=f"{folder}/").get("Contents", [])
-            for obj in objects:
-                file_name = obj["Key"].split("/")[-1]
-                file_path = obj["Key"]
 
-                signed_url = generate_signed_url(file_path)
+        # Regular content access without signed URLs
+        regular_objects = s3.list_objects_v2(Bucket=CONTENT_BUCKET, Prefix="regular/").get("Contents", [])
+        for obj in regular_objects:
+            files.append({
+                "name": obj["Key"].split("/")[-1],
+                "url": f"https://{CLOUDFRONT_DOMAIN}/{obj['Key']}"
+            })
+
+        # Premium content with signed URLs if the user is premium
+        if account_type == "Premium":
+            premium_objects = s3.list_objects_v2(Bucket=CONTENT_BUCKET, Prefix="premium/").get("Contents", [])
+            for obj in premium_objects:
+                signed_url = generate_signed_url(obj["Key"])
                 if signed_url:
-                    files.append({"name": file_name, "url": signed_url})
+                    files.append({
+                        "name": obj["Key"].split("/")[-1],
+                        "url": signed_url
+                    })
 
         return jsonify({"success": True, "files": files}), 200
     except Exception as e:
