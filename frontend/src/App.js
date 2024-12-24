@@ -8,16 +8,27 @@ function App() {
   const [user, setUser] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
 
+  const handleLogin = (user) => {
+    if (user) {
+      setUser(user); // Set the logged-in user
+    } else {
+      setIsRegistering(true); // Redirect to the register page
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null); // Clear the user state
+    setIsRegistering(false); // Redirect to login
+  };
+
   return (
     <div>
       {user ? (
-        <Home user={user} />
+        <Home user={user} onLogout={handleLogout} />
       ) : isRegistering ? (
         <Register onRegister={() => setIsRegistering(false)} />
       ) : (
-        <LoginMaterial
-          onLogin={(user) => (user ? setUser(user) : setIsRegistering(true))}
-        />
+        <LoginMaterial onLogin={handleLogin} />
       )}
     </div>
   );
