@@ -8,6 +8,7 @@ import {
   Link,
   CircularProgress,
 } from "@mui/material";
+import axios from "axios";
 
 const LoginMaterial = ({ onLogin }) => {
   const [username, setUsername] = useState("");
@@ -15,24 +16,23 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Base API URL from environment variable
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "http://localhost:5000";
+  // Base API URL from environment variable (without fallback)
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   const handleLogin = async () => {
     setIsLoading(true);
     setMessage("");
     try {
-      const response = await fetch(`${API_BASE_URL}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+      // Use axios to handle the login request
+      const response = await axios.post(`${API_BASE_URL}/api/login`, {
+        username,
+        password,
       });
-      const data = await response.json();
 
-      if (data.success) {
-        onLogin(data.user);
+      if (response.data.success) {
+        onLogin(response.data.user);
       } else {
-        setMessage(data.message || "Invalid username or password.");
+        setMessage(response.data.message || "Invalid username or password.");
       }
     } catch (error) {
       console.error("Error during login:", error);
