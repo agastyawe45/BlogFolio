@@ -13,7 +13,7 @@ import axios from "axios";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 
-const Register = ({ onRegister }) => {
+const Register = () => {
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -32,8 +32,8 @@ const Register = ({ onRegister }) => {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Base API URL from environment variables
-  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
+  // API base URL from environment variables
+  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
 
   // Function to handle profile image upload to S3 via pre-signed URL
   const handleImageUpload = async () => {
@@ -53,8 +53,9 @@ const Register = ({ onRegister }) => {
     }
 
     try {
+      console.log("API Base URL:", apiBaseUrl); // Debugging line
       // Request a pre-signed URL from the backend
-      const response = await axios.post(`${API_BASE_URL}/get-presigned-url`, {
+      const response = await axios.post(`${apiBaseUrl}/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
@@ -96,7 +97,7 @@ const Register = ({ onRegister }) => {
 
     try {
       // Submit the registration form to the backend
-      const response = await axios.post(`${API_BASE_URL}/register`, {
+      const response = await axios.post(`${apiBaseUrl}/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
@@ -118,7 +119,6 @@ const Register = ({ onRegister }) => {
           accountType: "Regular",
         });
         setProfileImage(null);
-        if (onRegister) onRegister();
       } else {
         setMessage(response.data.message || "Registration failed.");
       }
