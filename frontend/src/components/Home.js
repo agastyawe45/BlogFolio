@@ -7,9 +7,6 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Base API URL from environment variables
-  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
-
   useEffect(() => {
     const fetchFiles = async () => {
       setIsLoading(true);
@@ -19,7 +16,7 @@ const Home = ({ user }) => {
         console.log("Fetching signed URLs for account type:", user.accountType);
 
         // Fetch signed URLs from the backend
-        const response = await axios.post(`${apiBaseUrl}/api/get-signed-urls`, {
+        const response = await axios.post(`/api/get-signed-urls`, {
           accountType: user.accountType,
         });
 
@@ -39,7 +36,7 @@ const Home = ({ user }) => {
     };
 
     fetchFiles();
-  }, [user.accountType, apiBaseUrl]);
+  }, [user.accountType]);
 
   return (
     <Container maxWidth="sm">
