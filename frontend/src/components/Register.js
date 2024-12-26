@@ -32,9 +32,6 @@ const Register = () => {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // API base URL from environment variables
-  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
-
   // Function to handle profile image upload to S3 via pre-signed URL
   const handleImageUpload = async () => {
     if (!profileImage) {
@@ -53,17 +50,17 @@ const Register = () => {
     }
 
     try {
-      console.log("Requesting pre-signed URL...");
+      console.log("Sending request for pre-signed URL...");
       // Request a pre-signed URL from the backend
-      const response = await axios.post(`${apiBaseUrl}/api/get-presigned-url`, {
+      const response = await axios.post(`/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
       const { url } = response.data;
-
-      console.log("Pre-signed URL received:", url);
+      console.log("Received pre-signed URL:", url);
 
       // Upload the file directly to S3 using the pre-signed URL
+      console.log("Uploading file to S3...");
       const uploadResponse = await fetch(url, {
         method: "PUT",
         body: profileImage,
@@ -75,8 +72,7 @@ const Register = () => {
       if (!uploadResponse.ok) {
         throw new Error("Failed to upload file to S3.");
       }
-
-      console.log("Image uploaded successfully to S3.");
+      console.log("File uploaded successfully.");
 
       // Return the S3 URL of the uploaded file (without query parameters)
       return url.split("?")[0];
@@ -102,14 +98,14 @@ const Register = () => {
     try {
       console.log("Submitting registration form...");
       // Submit the registration form to the backend
-      const response = await axios.post(`${apiBaseUrl}/api/register`, {
+      const response = await axios.post(`/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
 
       if (response.data.success) {
+        console.log("Registration successful:", response.data);
         setMessage("User registered successfully!");
-        console.log("User registered successfully:", response.data);
         // Reset form fields
         setFormData({
           fullName: "",
@@ -126,6 +122,7 @@ const Register = () => {
         });
         setProfileImage(null);
       } else {
+        console.log("Registration failed:", response.data.message);
         setMessage(response.data.message || "Registration failed.");
       }
     } catch (error) {
