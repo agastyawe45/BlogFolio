@@ -16,15 +16,15 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Base API URL from environment variable (without fallback)
+  // Base API URL from environment variable
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   const handleLogin = async () => {
     setIsLoading(true);
     setMessage("");
     try {
-      // Use axios to handle the login request
-      const response = await axios.post(`${API_BASE_URL}/api/login`, {
+      // Use axios to send login request
+      const response = await axios.post(`${API_BASE_URL}/login`, {
         username,
         password,
       });
