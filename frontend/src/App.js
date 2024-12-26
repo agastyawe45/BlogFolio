@@ -8,17 +8,28 @@ function App() {
   const [user, setUser] = useState(null);
   const [isRegistering, setIsRegistering] = useState(false);
 
-  const handleLogin = (user) => {
-    if (user) {
-      setUser(user); // Set the logged-in user
+  // Handle login action
+  const handleLogin = (loggedInUser) => {
+    if (loggedInUser) {
+      console.log("User logged in:", loggedInUser); // Debugging log
+      setUser(loggedInUser); // Set the logged-in user
     } else {
+      console.log("Redirecting to registration page.");
       setIsRegistering(true); // Redirect to the register page
     }
   };
 
+  // Handle logout action
   const handleLogout = () => {
+    console.log("User logged out.");
     setUser(null); // Clear the user state
     setIsRegistering(false); // Redirect to login
+  };
+
+  // Handle successful registration
+  const handleRegistration = () => {
+    console.log("Registration successful. Redirecting to login.");
+    setIsRegistering(false); // Redirect to login page after registration
   };
 
   return (
@@ -26,7 +37,7 @@ function App() {
       {user ? (
         <Home user={user} onLogout={handleLogout} />
       ) : isRegistering ? (
-        <Register onRegister={() => setIsRegistering(false)} />
+        <Register onRegister={handleRegistration} />
       ) : (
         <LoginMaterial onLogin={handleLogin} />
       )}
