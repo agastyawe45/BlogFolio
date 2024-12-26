@@ -27,18 +27,26 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
-# Load environment variables
-def get_env_variable(var_name):
-    value = os.getenv(var_name)
-    if not value:
-        raise RuntimeError(f"Environment variable {var_name} is not set")
-    return value
+# Load configuration from config.json
+CONFIG_PATH = "/home/ubuntu/app/config.json"
 
-UPLOADS_BUCKET = get_env_variable("UPLOADS_BUCKET_NAME")
-CONTENT_BUCKET = get_env_variable("CONTENT_BUCKET_NAME")
-CLOUDFRONT_DOMAIN = get_env_variable("CLOUDFRONT_DOMAIN")
-CLOUDFRONT_KEY_PAIR_ID = get_env_variable("CLOUDFRONT_KEY_PAIR_ID")
-PRIVATE_KEY_PATH = get_env_variable("PRIVATE_KEY_PATH")
+def load_config(config_path):
+    try:
+        with open(config_path, "r") as file:
+            config = json.load(file)
+        logger.info("Configuration loaded successfully")
+        return config
+    except Exception as e:
+        logger.error(f"Error loading configuration: {e}")
+        raise RuntimeError("Failed to load configuration")
+
+config = load_config(CONFIG_PATH)
+
+UPLOADS_BUCKET = config.get("uploads_bucket_name")
+CONTENT_BUCKET = config.get("content_bucket_name")
+CLOUDFRONT_DOMAIN = config.get("cloudfront_domain")
+CLOUDFRONT_KEY_PAIR_ID = config.get("cloudfront_key_pair_id")
+PRIVATE_KEY_PATH = config.get("cloudfront_private_key_path")
 
 # Initialize boto3 client
 s3 = boto3.client("s3")
@@ -67,6 +75,7 @@ def login_page():
     data = request.json
     user = User.query.filter_by(username=data.get("username")).first()
     if user and check_password_hash(user.password, data.get("password")):
+        logger.info(f"User {user.username} logged in successfully")
         return jsonify({
             "success": True,
             "user": {
@@ -76,6 +85,7 @@ def login_page():
                 "profileImage": user.profile_image,
             },
         })
+    logger.warning("Invalid login attempt")
     return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
 # Registration API
@@ -85,13 +95,14 @@ def register():
         data = request.json
         required_fields = ["username", "password", "email", "accountType", "profileImage"]
         if not all(field in data for field in required_fields):
+            logger.warning("Registration failed: Missing required fields")
             return jsonify({"success": False, "message": "Missing required fields"}), 400
 
         if User.query.filter_by(username=data["username"]).first():
+            logger.warning(f"Registration failed: Username {data['username']} already exists")
             return jsonify({"success": False, "message": "Username already exists."}), 409
 
         hashed_password = generate_password_hash(data["password"], method="pbkdf2:sha256")
-
         new_user = User(
             username=data["username"],
             password=hashed_password,
@@ -101,7 +112,7 @@ def register():
         )
         db.session.add(new_user)
         db.session.commit()
-
+        logger.info(f"User {data['username']} registered successfully")
         return jsonify({"success": True, "message": "User registered successfully."}), 201
     except Exception as e:
         logger.error(f"Error in /api/register: {e}")
@@ -115,6 +126,7 @@ def get_presigned_url():
     content_type = data.get("contentType", "application/octet-stream")
 
     if not filename:
+        logger.warning("Pre-signed URL request failed: Filename is missing")
         return jsonify({"success": False, "message": "Filename is required"}), 400
 
     try:
@@ -173,6 +185,7 @@ def get_signed_urls():
     account_type = data.get("accountType")
 
     if not account_type:
+        logger.warning("Signed URLs request failed: Account type is missing")
         return jsonify({"success": False, "message": "Account type is required"}), 400
 
     try:
@@ -197,9 +210,10 @@ def get_signed_urls():
                         "url": signed_url
                     })
 
+        logger.info(f"Signed URLs generated successfully for account type: {account_type}")
         return jsonify({"success": True, "files": files}), 200
     except Exception as e:
-        logger.error(f"Error generating signed URLs: {e}")
+        logger.error(f"Error fetching signed URLs: {e}")
         return jsonify({"success": False, "message": "Failed to fetch files."}), 500
 
 if __name__ == "__main__":
