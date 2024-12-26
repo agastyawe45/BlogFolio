@@ -7,7 +7,7 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Base API URL from environment variable
+  // Base API URL from environment variables
   const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
@@ -16,10 +16,14 @@ const Home = ({ user }) => {
       setError("");
 
       try {
-        // Fetch signed URLs based on the user's account type
-        const response = await axios.post(`${apiBaseUrl}/get-signed-urls`, {
+        console.log("Fetching signed URLs for account type:", user.accountType);
+
+        // Fetch signed URLs from the backend
+        const response = await axios.post(`${apiBaseUrl}/api/get-signed-urls`, {
           accountType: user.accountType,
         });
+
+        console.log("Files fetched successfully:", response.data);
 
         if (response.data.success) {
           setFiles(response.data.files);
