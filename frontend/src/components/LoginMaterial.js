@@ -16,27 +16,36 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Base API URL from environment variable
+  // Base API URL from environment variables
   const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
 
   const handleLogin = async () => {
     setIsLoading(true);
     setMessage("");
+
     try {
-      // Use axios to handle the login request
-      const response = await axios.post(`${apiBaseUrl}/login`, {
+      console.log("Initiating login request...");
+
+      // Make POST request to login API
+      const response = await axios.post(`${apiBaseUrl}/api/login`, {
         username,
         password,
       });
 
+      console.log("Login response received:", response.data);
+
       if (response.data.success) {
+        setMessage("Login successful!");
+        console.log("User data:", response.data.user);
         onLogin(response.data.user);
       } else {
         setMessage(response.data.message || "Invalid username or password.");
       }
     } catch (error) {
       console.error("Error during login:", error);
-      setMessage("Error connecting to the server. Please try again later.");
+      setMessage(
+        error.response?.data?.message || "Error connecting to the server. Please try again later."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +67,11 @@ const LoginMaterial = ({ onLogin }) => {
           Login
         </Typography>
         {message && (
-          <Typography color="error" variant="body2">
+          <Typography
+            color={message === "Login successful!" ? "green" : "error"}
+            variant="body2"
+            sx={{ mb: 2 }}
+          >
             {message}
           </Typography>
         )}
