@@ -33,7 +33,7 @@ const Register = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // API base URL from environment variables
-  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   // Function to handle profile image upload to S3 via pre-signed URL
   const handleImageUpload = async () => {
@@ -54,7 +54,7 @@ const Register = () => {
 
     try {
       // Request a pre-signed URL from the backend
-      const response = await axios.post(`${apiBaseUrl}/api/get-presigned-url`, {
+      const response = await axios.post(`${API_BASE_URL}/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
@@ -96,7 +96,7 @@ const Register = () => {
 
     try {
       // Submit the registration form to the backend
-      const response = await axios.post(`${apiBaseUrl}/api/register`, {
+      const response = await axios.post(`${API_BASE_URL}/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
