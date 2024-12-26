@@ -53,13 +53,15 @@ const Register = () => {
     }
 
     try {
-      console.log("API Base URL:", apiBaseUrl); // Debugging line
+      console.log("Requesting pre-signed URL...");
       // Request a pre-signed URL from the backend
-      const response = await axios.post(`${apiBaseUrl}/get-presigned-url`, {
+      const response = await axios.post(`${apiBaseUrl}/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
       const { url } = response.data;
+
+      console.log("Pre-signed URL received:", url);
 
       // Upload the file directly to S3 using the pre-signed URL
       const uploadResponse = await fetch(url, {
@@ -73,6 +75,8 @@ const Register = () => {
       if (!uploadResponse.ok) {
         throw new Error("Failed to upload file to S3.");
       }
+
+      console.log("Image uploaded successfully to S3.");
 
       // Return the S3 URL of the uploaded file (without query parameters)
       return url.split("?")[0];
@@ -96,14 +100,16 @@ const Register = () => {
     }
 
     try {
+      console.log("Submitting registration form...");
       // Submit the registration form to the backend
-      const response = await axios.post(`${apiBaseUrl}/register`, {
+      const response = await axios.post(`${apiBaseUrl}/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
 
       if (response.data.success) {
         setMessage("User registered successfully!");
+        console.log("User registered successfully:", response.data);
         // Reset form fields
         setFormData({
           fullName: "",
