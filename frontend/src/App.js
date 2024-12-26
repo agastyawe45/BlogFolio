@@ -11,24 +11,24 @@ function App() {
   // Handle login action
   const handleLogin = (loggedInUser) => {
     if (loggedInUser) {
-      console.log("User logged in:", loggedInUser); // Debugging log
+      console.log("User logged in successfully:", loggedInUser); // Debugging log
       setUser(loggedInUser); // Set the logged-in user
     } else {
-      console.log("Redirecting to registration page.");
+      console.log("No user found. Redirecting to registration page."); // Debugging log
       setIsRegistering(true); // Redirect to the register page
     }
   };
 
   // Handle logout action
   const handleLogout = () => {
-    console.log("User logged out.");
+    console.log("User logged out. Clearing session."); // Debugging log
     setUser(null); // Clear the user state
     setIsRegistering(false); // Redirect to login
   };
 
   // Handle successful registration
   const handleRegistration = () => {
-    console.log("Registration successful. Redirecting to login.");
+    console.log("Registration completed. Redirecting to login page."); // Debugging log
     setIsRegistering(false); // Redirect to login page after registration
   };
 
