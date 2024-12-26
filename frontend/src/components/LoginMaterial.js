@@ -16,9 +16,6 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Base API URL from environment variables
-  const apiBaseUrl = process.env.REACT_APP_API_BASE_URL;
-
   const handleLogin = async () => {
     setIsLoading(true);
     setMessage("");
@@ -27,7 +24,7 @@ const LoginMaterial = ({ onLogin }) => {
       console.log("Initiating login request...");
 
       // Make POST request to login API
-      const response = await axios.post(`${apiBaseUrl}/api/login`, {
+      const response = await axios.post(`/api/login`, {
         username,
         password,
       });
@@ -39,6 +36,7 @@ const LoginMaterial = ({ onLogin }) => {
         console.log("User data:", response.data.user);
         onLogin(response.data.user);
       } else {
+        console.warn("Login failed:", response.data.message);
         setMessage(response.data.message || "Invalid username or password.");
       }
     } catch (error) {
