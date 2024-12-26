@@ -10,14 +10,15 @@ import json
 from base64 import b64encode
 import logging
 
-# Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 # Initialize Flask app
 app = Flask(__name__, static_folder="frontend/build")
 
 # Enable CORS
 CORS(app)
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
+logger = logging.getLogger(__name__)
 
 # SQLite Database Configuration
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///users.db"
@@ -26,27 +27,21 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
-# AWS S3 and CloudFront Configuration
-UPLOADS_BUCKET = os.getenv("UPLOADS_BUCKET_NAME", "ase-uploads")
-CONTENT_BUCKET = os.getenv("CONTENT_BUCKET_NAME", "ase-content")
-CLOUDFRONT_DOMAIN = os.getenv("CLOUDFRONT_DOMAIN")
-CLOUDFRONT_KEY_PAIR_ID = os.getenv("CLOUDFRONT_KEY_PAIR_ID")
-PRIVATE_KEY_PATH = os.getenv("PRIVATE_KEY_PATH")
+# Load environment variables
+def get_env_variable(var_name):
+    value = os.getenv(var_name)
+    if not value:
+        raise RuntimeError(f"Environment variable {var_name} is not set")
+    return value
+
+UPLOADS_BUCKET = get_env_variable("UPLOADS_BUCKET_NAME")
+CONTENT_BUCKET = get_env_variable("CONTENT_BUCKET_NAME")
+CLOUDFRONT_DOMAIN = get_env_variable("CLOUDFRONT_DOMAIN")
+CLOUDFRONT_KEY_PAIR_ID = get_env_variable("CLOUDFRONT_KEY_PAIR_ID")
+PRIVATE_KEY_PATH = get_env_variable("PRIVATE_KEY_PATH")
 
 # Initialize boto3 client
 s3 = boto3.client("s3")
-
-# Middleware for logging requests and responses
-@app.before_request
-def log_request_info():
-    logging.info(f"Headers: {request.headers}")
-    logging.info(f"Body: {request.get_data()}")
-
-@app.after_request
-def log_response_info(response):
-    logging.info(f"Response: {response.status}")
-    logging.info(f"Response Body: {response.get_data(as_text=True)}")
-    return response
 
 # User Model
 class User(db.Model):
@@ -109,23 +104,21 @@ def register():
 
         return jsonify({"success": True, "message": "User registered successfully."}), 201
     except Exception as e:
-        logging.error(f"Error in /api/register: {e}")
+        logger.error(f"Error in /api/register: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
 
 # Pre-signed URL API
 @app.route("/api/get-presigned-url", methods=["POST"])
 def get_presigned_url():
-    logging.info("Handling pre-signed URL request...")
     data = request.json
-    logging.info(f"Request Data: {data}")
     filename = data.get("filename")
     content_type = data.get("contentType", "application/octet-stream")
 
     if not filename:
-        logging.error("Filename is missing in the request.")
         return jsonify({"success": False, "message": "Filename is required"}), 400
 
     try:
+        logger.info(f"Generating pre-signed URL for file: {filename}")
         presigned_url = s3.generate_presigned_url(
             "put_object",
             Params={
@@ -135,11 +128,43 @@ def get_presigned_url():
             },
             ExpiresIn=3600,
         )
-        logging.info(f"Generated Pre-signed URL: {presigned_url}")
         return jsonify({"url": presigned_url}), 200
     except Exception as e:
-        logging.error(f"Error generating pre-signed URL: {e}")
+        logger.error(f"Error generating pre-signed URL: {e}")
         return jsonify({"success": False, "message": "Failed to generate pre-signed URL"}), 500
+
+# Function: Generate CloudFront Signed URL
+def generate_signed_url(file_path):
+    try:
+        expires = int(time.time()) + 3600
+        url = f"https://{CLOUDFRONT_DOMAIN}/{file_path}"
+        policy = {
+            "Statement": [
+                {
+                    "Resource": url,
+                    "Condition": {
+                        "DateLessThan": {"AWS:EpochTime": expires}
+                    }
+                }
+            ]
+        }
+
+        policy_json = json.dumps(policy)
+        with open(PRIVATE_KEY_PATH, "rb") as key_file:
+            private_key = rsa.PrivateKey.load_pkcs1(key_file.read())
+
+        signature = rsa.sign(policy_json.encode("utf-8"), private_key, "SHA-1")
+        encoded_signature = b64encode(signature).decode("utf-8")
+
+        signed_url = (
+            f"{url}?Policy={b64encode(policy_json.encode('utf-8')).decode('utf-8')}"
+            f"&Signature={encoded_signature}&Key-Pair-Id={CLOUDFRONT_KEY_PAIR_ID}"
+        )
+
+        return signed_url
+    except Exception as e:
+        logger.error(f"Error generating signed URL: {e}")
+        return None
 
 # CloudFront Signed URLs API
 @app.route("/api/get-signed-urls", methods=["POST"])
@@ -174,41 +199,8 @@ def get_signed_urls():
 
         return jsonify({"success": True, "files": files}), 200
     except Exception as e:
-        logging.error(f"Error generating signed URLs: {e}")
+        logger.error(f"Error generating signed URLs: {e}")
         return jsonify({"success": False, "message": "Failed to fetch files."}), 500
-
-# Function: Generate CloudFront Signed URL
-def generate_signed_url(file_path):
-    try:
-        expires = int(time.time()) + 3600
-        url = f"https://{CLOUDFRONT_DOMAIN}/{file_path}"
-        policy = {
-            "Statement": [
-                {
-                    "Resource": url,
-                    "Condition": {
-                        "DateLessThan": {"AWS:EpochTime": expires}
-                    }
-                }
-            ]
-        }
-
-        policy_json = json.dumps(policy)
-        with open(PRIVATE_KEY_PATH, "rb") as key_file:
-            private_key = rsa.PrivateKey.load_pkcs1(key_file.read())
-
-        signature = rsa.sign(policy_json.encode("utf-8"), private_key, "SHA-1")
-        encoded_signature = b64encode(signature).decode("utf-8")
-
-        signed_url = (
-            f"{url}?Policy={b64encode(policy_json.encode('utf-8')).decode('utf-8')}"
-            f"&Signature={encoded_signature}&Key-Pair-Id={CLOUDFRONT_KEY_PAIR_ID}"
-        )
-
-        return signed_url
-    except Exception as e:
-        logging.error(f"Error generating signed URL: {e}")
-        return None
 
 if __name__ == "__main__":
     with app.app_context():
