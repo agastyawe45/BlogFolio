@@ -7,7 +7,7 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Base API URL from environment variable (without fallback)
+  // Base API URL from environment variable
   const API_BASE_URL = process.env.REACT_APP_API_BASE_URL;
 
   useEffect(() => {
@@ -17,7 +17,7 @@ const Home = ({ user }) => {
 
       try {
         // Fetch signed URLs based on the user's account type
-        const response = await axios.post(`${API_BASE_URL}/api/get-signed-urls`, {
+        const response = await axios.post(`${API_BASE_URL}/get-signed-urls`, {
           accountType: user.accountType,
         });
 
