@@ -14,7 +14,7 @@ import logging
 app = Flask(__name__, static_folder="frontend/build")
 
 # Enable CORS
-CORS(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
@@ -49,7 +49,7 @@ CLOUDFRONT_KEY_PAIR_ID = config.get("cloudfront_key_pair_id")
 PRIVATE_KEY_PATH = config.get("cloudfront_private_key_path")
 
 # Initialize boto3 client
-s3 = boto3.client("s3",region_name="us-west-2")
+s3 = boto3.client("s3", region_name="us-west-2")
 
 # Utility functions for case conversion
 def snake_to_camel(snake_str):
