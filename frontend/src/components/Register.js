@@ -49,7 +49,7 @@ const Register = () => {
 
     try {
       console.log("Sending request for pre-signed URL...");
-      const response = await axios.post(`/api/get-presigned-url`, {
+      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
@@ -96,7 +96,7 @@ const Register = () => {
 
     try {
       console.log("Submitting registration form...");
-      const response = await axios.post(`/api/register`, {
+      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
       });
