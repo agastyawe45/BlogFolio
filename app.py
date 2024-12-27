@@ -56,7 +56,11 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    country = db.Column(db.String(50), nullable=False)
+    state = db.Column(db.String(50), nullable=False)
+    city = db.Column(db.String(50), nullable=False)
+    zip_code = db.Column(db.String(20), nullable=False)
     account_type = db.Column(db.String(10), nullable=False)
     profile_image = db.Column(db.String(255), nullable=True)
 
@@ -75,17 +79,19 @@ def login_page():
     data = request.json
     user = User.query.filter_by(username=data.get("username")).first()
     if user and check_password_hash(user.password, data.get("password")):
-        logger.info(f"User {user.username} logged in successfully")
         return jsonify({
             "success": True,
             "user": {
                 "username": user.username,
-                "email": user.email,
+                "phoneNumber": user.phone_number,
+                "country": user.country,
+                "state": user.state,
+                "city": user.city,
+                "zipCode": user.zip_code,
                 "accountType": user.account_type,
                 "profileImage": user.profile_image,
             },
         })
-    logger.warning("Invalid login attempt")
     return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
 # Registration API
@@ -93,26 +99,31 @@ def login_page():
 def register():
     try:
         data = request.json
-        required_fields = ["username", "password", "email", "accountType", "profileImage"]
+        required_fields = [
+            "username", "password", "phoneNumber", "country", "state", "city", "zipCode", "accountType"
+        ]
         if not all(field in data for field in required_fields):
-            logger.warning("Registration failed: Missing required fields")
             return jsonify({"success": False, "message": "Missing required fields"}), 400
 
         if User.query.filter_by(username=data["username"]).first():
-            logger.warning(f"Registration failed: Username {data['username']} already exists")
             return jsonify({"success": False, "message": "Username already exists."}), 409
 
         hashed_password = generate_password_hash(data["password"], method="pbkdf2:sha256")
+
         new_user = User(
             username=data["username"],
             password=hashed_password,
-            email=data["email"],
+            phone_number=data["phoneNumber"],
+            country=data["country"],
+            state=data["state"],
+            city=data["city"],
+            zip_code=data["zipCode"],
             account_type=data["accountType"],
-            profile_image=data["profileImage"],
+            profile_image=data.get("profileImage"),
         )
         db.session.add(new_user)
         db.session.commit()
-        logger.info(f"User {data['username']} registered successfully")
+
         return jsonify({"success": True, "message": "User registered successfully."}), 201
     except Exception as e:
         logger.error(f"Error in /api/register: {e}")
@@ -126,7 +137,6 @@ def get_presigned_url():
     content_type = data.get("contentType", "application/octet-stream")
 
     if not filename:
-        logger.warning("Pre-signed URL request failed: Filename is missing")
         return jsonify({"success": False, "message": "Filename is required"}), 400
 
     try:
@@ -185,7 +195,6 @@ def get_signed_urls():
     account_type = data.get("accountType")
 
     if not account_type:
-        logger.warning("Signed URLs request failed: Account type is missing")
         return jsonify({"success": False, "message": "Account type is required"}), 400
 
     try:
@@ -210,10 +219,9 @@ def get_signed_urls():
                         "url": signed_url
                     })
 
-        logger.info(f"Signed URLs generated successfully for account type: {account_type}")
         return jsonify({"success": True, "files": files}), 200
     except Exception as e:
-        logger.error(f"Error fetching signed URLs: {e}")
+        logger.error(f"Error generating signed URLs: {e}")
         return jsonify({"success": False, "message": "Failed to fetch files."}), 500
 
 if __name__ == "__main__":
