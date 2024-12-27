@@ -51,6 +51,22 @@ PRIVATE_KEY_PATH = config.get("cloudfront_private_key_path")
 # Initialize boto3 client
 s3 = boto3.client("s3")
 
+# Utility functions for case conversion
+def snake_to_camel(snake_str):
+    components = snake_str.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+def camel_to_snake(camel_str):
+    return ''.join(['_' + c.lower() if c.isupper() else c for c in camel_str]).lstrip('_')
+
+def convert_keys(data, convert_func):
+    if isinstance(data, dict):
+        return {convert_func(k): convert_keys(v, convert_func) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_keys(item, convert_func) for item in data]
+    else:
+        return data
+
 # User Model
 class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -79,19 +95,18 @@ def login_page():
     data = request.json
     user = User.query.filter_by(username=data.get("username")).first()
     if user and check_password_hash(user.password, data.get("password")):
-        return jsonify({
-            "success": True,
-            "user": {
-                "username": user.username,
-                "phoneNumber": user.phone_number,
-                "country": user.country,
-                "state": user.state,
-                "city": user.city,
-                "zipCode": user.zip_code,
-                "accountType": user.account_type,
-                "profileImage": user.profile_image,
-            },
-        })
+        user_dict = {
+            "username": user.username,
+            "phone_number": user.phone_number,
+            "country": user.country,
+            "state": user.state,
+            "city": user.city,
+            "zip_code": user.zip_code,
+            "account_type": user.account_type,
+            "profile_image": user.profile_image,
+        }
+        response = convert_keys(user_dict, snake_to_camel)
+        return jsonify({"success": True, "user": response})
     return jsonify({"success": False, "message": "Invalid username or password."}), 401
 
 # Registration API
@@ -99,8 +114,9 @@ def login_page():
 def register():
     try:
         data = request.json
+        data = convert_keys(data, camel_to_snake)
         required_fields = [
-            "username", "password", "phoneNumber", "country", "state", "city", "zipCode", "accountType"
+            "username", "password", "phone_number", "country", "state", "city", "zip_code", "account_type"
         ]
         if not all(field in data for field in required_fields):
             return jsonify({"success": False, "message": "Missing required fields"}), 400
@@ -113,13 +129,13 @@ def register():
         new_user = User(
             username=data["username"],
             password=hashed_password,
-            phone_number=data["phoneNumber"],
+            phone_number=data["phone_number"],
             country=data["country"],
             state=data["state"],
             city=data["city"],
-            zip_code=data["zipCode"],
-            account_type=data["accountType"],
-            profile_image=data.get("profileImage"),
+            zip_code=data["zip_code"],
+            account_type=data["account_type"],
+            profile_image=data.get("profile_image"),
         )
         db.session.add(new_user)
         db.session.commit()
