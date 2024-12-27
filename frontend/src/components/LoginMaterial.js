@@ -24,10 +24,13 @@ const LoginMaterial = ({ onLogin }) => {
       console.log("Initiating login request...");
 
       // Make POST request to login API
-      const response = await axios.post(`/api/login`, {
-        username,
-        password,
-      });
+      const response = await axios.post(
+        `${process.env.REACT_APP_API_BASE_URL}/api/login`,
+        {
+          username,
+          password,
+        }
+      );
 
       console.log("Login response received:", response.data);
 
@@ -42,7 +45,8 @@ const LoginMaterial = ({ onLogin }) => {
     } catch (error) {
       console.error("Error during login:", error);
       setMessage(
-        error.response?.data?.message || "Error connecting to the server. Please try again later."
+        error.response?.data?.message ||
+          "Error connecting to the server. Please try again later."
       );
     } finally {
       setIsLoading(false);
