@@ -15,16 +15,14 @@ import "react-phone-input-2/lib/style.css";
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    fullName: "",
-    email: "",
-    phoneNumber: "",
+    username: "",
+    mobileNumber: "",
     country: "",
-    stateRegion: "",
+    state: "",
     city: "",
-    address: "",
     zipCode: "",
-    company: "",
-    role: "",
+    password: "",
+    confirmPassword: "",
     accountType: "Regular",
   });
 
@@ -51,7 +49,6 @@ const Register = () => {
 
     try {
       console.log("Sending request for pre-signed URL...");
-      // Request a pre-signed URL from the backend
       const response = await axios.post(`/api/get-presigned-url`, {
         filename: profileImage.name,
         contentType: profileImage.type,
@@ -59,7 +56,6 @@ const Register = () => {
       const { url } = response.data;
       console.log("Received pre-signed URL:", url);
 
-      // Upload the file directly to S3 using the pre-signed URL
       console.log("Uploading file to S3...");
       const uploadResponse = await fetch(url, {
         method: "PUT",
@@ -73,8 +69,6 @@ const Register = () => {
         throw new Error("Failed to upload file to S3.");
       }
       console.log("File uploaded successfully.");
-
-      // Return the S3 URL of the uploaded file (without query parameters)
       return url.split("?")[0];
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -88,7 +82,12 @@ const Register = () => {
     setIsSubmitting(true);
     setMessage("");
 
-    // Upload the profile image and get the S3 URL
+    if (formData.password !== formData.confirmPassword) {
+      setMessage("Passwords do not match.");
+      setIsSubmitting(false);
+      return;
+    }
+
     const s3ImageUrl = await handleImageUpload();
     if (!s3ImageUrl) {
       setIsSubmitting(false);
@@ -97,7 +96,6 @@ const Register = () => {
 
     try {
       console.log("Submitting registration form...");
-      // Submit the registration form to the backend
       const response = await axios.post(`/api/register`, {
         ...formData,
         profileImage: s3ImageUrl,
@@ -106,18 +104,15 @@ const Register = () => {
       if (response.data.success) {
         console.log("Registration successful:", response.data);
         setMessage("User registered successfully!");
-        // Reset form fields
         setFormData({
-          fullName: "",
-          email: "",
-          phoneNumber: "",
+          username: "",
+          mobileNumber: "",
           country: "",
-          stateRegion: "",
+          state: "",
           city: "",
-          address: "",
           zipCode: "",
-          company: "",
-          role: "",
+          password: "",
+          confirmPassword: "",
           accountType: "Regular",
         });
         setProfileImage(null);
@@ -175,20 +170,14 @@ const Register = () => {
         </Box>
         <Box mt={3} display="grid" gap={2} gridTemplateColumns="repeat(2, 1fr)">
           <TextField
-            label="Full Name"
-            value={formData.fullName}
-            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-          />
-          <TextField
-            label="Email Address"
-            type="email"
-            value={formData.email}
-            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+            label="Username"
+            value={formData.username}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
           />
           <PhoneInput
             country={"us"}
-            value={formData.phoneNumber}
-            onChange={(phone) => setFormData({ ...formData, phoneNumber: phone })}
+            value={formData.mobileNumber}
+            onChange={(phone) => setFormData({ ...formData, mobileNumber: phone })}
           />
           <TextField
             label="Country"
@@ -196,9 +185,9 @@ const Register = () => {
             onChange={(e) => setFormData({ ...formData, country: e.target.value })}
           />
           <TextField
-            label="State/Region"
-            value={formData.stateRegion}
-            onChange={(e) => setFormData({ ...formData, stateRegion: e.target.value })}
+            label="State"
+            value={formData.state}
+            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
           />
           <TextField
             label="City"
@@ -206,24 +195,21 @@ const Register = () => {
             onChange={(e) => setFormData({ ...formData, city: e.target.value })}
           />
           <TextField
-            label="Address"
-            value={formData.address}
-            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-          />
-          <TextField
-            label="Zip/Code"
+            label="Zip Code"
             value={formData.zipCode}
             onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
           />
           <TextField
-            label="Company"
-            value={formData.company}
-            onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+            label="Password"
+            type="password"
+            value={formData.password}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
           />
           <TextField
-            label="Role"
-            value={formData.role}
-            onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+            label="Re-enter Password"
+            type="password"
+            value={formData.confirmPassword}
+            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
           />
         </Box>
         <Button
