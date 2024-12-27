@@ -78,7 +78,7 @@ class User(db.Model):
     city = db.Column(db.String(50), nullable=False)
     zip_code = db.Column(db.String(20), nullable=False)
     account_type = db.Column(db.String(10), nullable=False)
-    profile_image = db.Column(db.String(255), nullable=True)
+    profile_image = db.Column(db.String(1024), nullable=True)
 
 # Serve React App
 @app.route("/", defaults={"path": ""})
