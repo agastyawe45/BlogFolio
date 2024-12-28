@@ -16,40 +16,41 @@ const LoginMaterial = ({ onLogin }) => {
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Function to handle login
   const handleLogin = async () => {
+    console.log("Login process started. Username:", username);
+
     setIsLoading(true);
     setMessage("");
 
+    if (!username || !password) {
+      console.warn("Missing username or password.");
+      setMessage("Please provide both username and password.");
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      console.log("Initiating login request...");
-
-      // Make POST request to login API
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/login`,
-        {
-          username,
-          password,
-        }
-      );
-
-      console.log("Login response received:", response.data);
+      console.log("Sending login request to the backend...");
+      const response = await axios.post("/api/login", { username, password });
 
       if (response.data.success) {
+        console.log("Login successful. User data:", response.data.user);
         setMessage("Login successful!");
-        console.log("User data:", response.data.user);
         onLogin(response.data.user);
       } else {
-        console.warn("Login failed:", response.data.message);
+        console.warn("Login failed. Server response:", response.data.message);
         setMessage(response.data.message || "Invalid username or password.");
       }
     } catch (error) {
-      console.error("Error during login:", error);
+      console.error("Error during login:", error.response?.data || error.message);
       setMessage(
         error.response?.data?.message ||
-          "Error connecting to the server. Please try again later."
+        "Error connecting to the server. Please try again later."
       );
     } finally {
       setIsLoading(false);
+      console.log("Login process completed.");
     }
   };
 
@@ -68,6 +69,7 @@ const LoginMaterial = ({ onLogin }) => {
         <Typography variant="h4" gutterBottom>
           Login
         </Typography>
+
         {message && (
           <Typography
             color={message === "Login successful!" ? "green" : "error"}
@@ -77,14 +79,19 @@ const LoginMaterial = ({ onLogin }) => {
             {message}
           </Typography>
         )}
+
         <TextField
           label="Username"
           variant="outlined"
           fullWidth
           margin="normal"
           value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          onChange={(e) => {
+            console.log("Username input changed:", e.target.value);
+            setUsername(e.target.value);
+          }}
         />
+
         <TextField
           label="Password"
           type="password"
@@ -92,8 +99,12 @@ const LoginMaterial = ({ onLogin }) => {
           fullWidth
           margin="normal"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          onChange={(e) => {
+            console.log("Password input changed.");
+            setPassword(e.target.value);
+          }}
         />
+
         <Button
           variant="contained"
           color="primary"
@@ -104,9 +115,13 @@ const LoginMaterial = ({ onLogin }) => {
         >
           {isLoading ? <CircularProgress size={24} /> : "Login"}
         </Button>
+
         <Link
           sx={{ mt: 2, cursor: "pointer" }}
-          onClick={() => onLogin(null)}
+          onClick={() => {
+            console.log("Redirecting to registration page.");
+            onLogin(null);
+          }}
           underline="hover"
         >
           Don't have an account? Register here.
