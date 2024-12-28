@@ -32,32 +32,37 @@ const Register = () => {
 
   // Function to handle profile image upload to S3 via pre-signed URL
   const handleImageUpload = async () => {
+    console.log("Starting image upload...");
+
     if (!profileImage) {
+      console.warn("No profile image selected.");
       setMessage("Please select a profile image.");
       return null;
     }
 
     // Validate file size and type
     if (profileImage.size > 10 * 1024 * 1024) {
+      console.error("Image size exceeds the limit of 10 MB.");
       setMessage("Image size exceeds 10 MB.");
       return null;
     }
     if (!["image/jpeg", "image/png", "image/gif"].includes(profileImage.type)) {
+      console.error("Invalid image type selected.");
       setMessage("Invalid image type. Allowed types: jpeg, png, gif.");
       return null;
     }
 
     try {
-      console.log("Sending request for pre-signed URL...");
-      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/get-presigned-url`, {
+      console.log("Requesting pre-signed URL for image upload...");
+      const response = await axios.post("/api/get-presigned-url", {
         filename: profileImage.name,
         contentType: profileImage.type,
       });
-      const { url } = response.data;
-      console.log("Received pre-signed URL:", url);
 
-      console.log("Uploading file to S3...");
-      const uploadResponse = await fetch(url, {
+      console.log("Pre-signed URL received:", response.data.url);
+
+      console.log("Uploading image to S3...");
+      const uploadResponse = await fetch(response.data.url, {
         method: "PUT",
         body: profileImage,
         headers: {
@@ -66,12 +71,14 @@ const Register = () => {
       });
 
       if (!uploadResponse.ok) {
+        console.error("Image upload to S3 failed.");
         throw new Error("Failed to upload file to S3.");
       }
-      console.log("File uploaded successfully.");
-      return url.split("?")[0];
+
+      console.log("Image uploaded successfully.");
+      return response.data.url.split("?")[0];
     } catch (error) {
-      console.error("Error uploading image:", error);
+      console.error("Error during image upload:", error.message);
       setMessage("Failed to upload profile image.");
       return null;
     }
@@ -79,31 +86,39 @@ const Register = () => {
 
   // Handle form submission for user registration
   const handleSubmit = async () => {
+    console.log("Form submission started with data:", formData);
+
     setIsSubmitting(true);
     setMessage("");
 
+    // Validate password match
     if (formData.password !== formData.confirmPassword) {
+      console.error("Passwords do not match.");
       setMessage("Passwords do not match.");
       setIsSubmitting(false);
       return;
     }
 
+    // Upload the profile image to S3
     const s3ImageUrl = await handleImageUpload();
     if (!s3ImageUrl) {
+      console.error("Image upload failed. Aborting registration.");
       setIsSubmitting(false);
       return;
     }
 
     try {
-      console.log("Submitting registration form...");
-      const response = await axios.post(`${process.env.REACT_APP_API_BASE_URL}/api/register`, {
+      console.log("Sending registration data to backend...");
+      const response = await axios.post("/api/register", {
         ...formData,
         profileImage: s3ImageUrl,
       });
 
       if (response.data.success) {
-        console.log("Registration successful:", response.data);
+        console.log("User registered successfully:", response.data);
         setMessage("User registered successfully!");
+
+        // Reset form and image state
         setFormData({
           username: "",
           mobileNumber: "",
@@ -117,14 +132,15 @@ const Register = () => {
         });
         setProfileImage(null);
       } else {
-        console.log("Registration failed:", response.data.message);
+        console.warn("Registration failed:", response.data.message);
         setMessage(response.data.message || "Registration failed.");
       }
     } catch (error) {
-      console.error("Error during registration:", error);
+      console.error("Error during registration:", error.message);
       setMessage("Failed to register user.");
     } finally {
       setIsSubmitting(false);
+      console.log("Form submission completed.");
     }
   };
 
@@ -145,7 +161,10 @@ const Register = () => {
             <input
               type="file"
               accept=".jpeg, .jpg, .png, .gif"
-              onChange={(e) => setProfileImage(e.target.files[0])}
+              onChange={(e) => {
+                console.log("Selected profile image:", e.target.files[0]);
+                setProfileImage(e.target.files[0]);
+              }}
             />
             <Typography variant="body2">
               Allowed: *.jpeg, *.jpg, *.png, *.gif - max size of 10 MB
@@ -156,12 +175,11 @@ const Register = () => {
               control={
                 <Switch
                   checked={formData.accountType === "Premium"}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      accountType: e.target.checked ? "Premium" : "Regular",
-                    })
-                  }
+                  onChange={(e) => {
+                    const accountType = e.target.checked ? "Premium" : "Regular";
+                    console.log("Account type changed to:", accountType);
+                    setFormData({ ...formData, accountType });
+                  }}
                 />
               }
               label="Premium"
@@ -172,44 +190,68 @@ const Register = () => {
           <TextField
             label="Username"
             value={formData.username}
-            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+            onChange={(e) => {
+              console.log("Username changed to:", e.target.value);
+              setFormData({ ...formData, username: e.target.value });
+            }}
           />
           <PhoneInput
             country={"us"}
             value={formData.mobileNumber}
-            onChange={(phone) => setFormData({ ...formData, mobileNumber: phone })}
+            onChange={(phone) => {
+              console.log("Mobile number changed to:", phone);
+              setFormData({ ...formData, mobileNumber: phone });
+            }}
           />
           <TextField
             label="Country"
             value={formData.country}
-            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+            onChange={(e) => {
+              console.log("Country changed to:", e.target.value);
+              setFormData({ ...formData, country: e.target.value });
+            }}
           />
           <TextField
             label="State"
             value={formData.state}
-            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+            onChange={(e) => {
+              console.log("State changed to:", e.target.value);
+              setFormData({ ...formData, state: e.target.value });
+            }}
           />
           <TextField
             label="City"
             value={formData.city}
-            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+            onChange={(e) => {
+              console.log("City changed to:", e.target.value);
+              setFormData({ ...formData, city: e.target.value });
+            }}
           />
           <TextField
             label="Zip Code"
             value={formData.zipCode}
-            onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
+            onChange={(e) => {
+              console.log("Zip Code changed to:", e.target.value);
+              setFormData({ ...formData, zipCode: e.target.value });
+            }}
           />
           <TextField
             label="Password"
             type="password"
             value={formData.password}
-            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            onChange={(e) => {
+              console.log("Password updated.");
+              setFormData({ ...formData, password: e.target.value });
+            }}
           />
           <TextField
             label="Re-enter Password"
             type="password"
             value={formData.confirmPassword}
-            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
+            onChange={(e) => {
+              console.log("Confirm password updated.");
+              setFormData({ ...formData, confirmPassword: e.target.value });
+            }}
           />
         </Box>
         <Button
