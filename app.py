@@ -14,7 +14,7 @@ import logging
 app = Flask(__name__, static_folder="frontend/build")
 
 # Enable CORS
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s %(levelname)s %(message)s")
@@ -34,11 +34,14 @@ def load_config(config_path):
     try:
         with open(config_path, "r") as file:
             config = json.load(file)
-        logger.info("Configuration loaded successfully")
+        logger.info("Configuration loaded successfully.")
         return config
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found at {config_path}")
+        raise RuntimeError("Configuration file not found.")
     except Exception as e:
         logger.error(f"Error loading configuration: {e}")
-        raise RuntimeError("Failed to load configuration")
+        raise RuntimeError("Failed to load configuration.")
 
 config = load_config(CONFIG_PATH)
 
@@ -78,54 +81,67 @@ class User(db.Model):
     city = db.Column(db.String(50), nullable=False)
     zip_code = db.Column(db.String(20), nullable=False)
     account_type = db.Column(db.String(10), nullable=False)
-    profile_image = db.Column(db.String(1024), nullable=True)
+    profile_image = db.Column(db.String(255), nullable=True)
 
 # Serve React App
 @app.route("/", defaults={"path": ""})
 @app.route("/<path:path>")
 def serve_react_app(path):
-    if path != "" and os.path.exists(app.static_folder + "/" + path):
-        return send_from_directory(app.static_folder, path)
-    else:
-        return send_from_directory(app.static_folder, "index.html")
+    try:
+        if path != "" and os.path.exists(app.static_folder + "/" + path):
+            logger.info(f"Serving file: {path}")
+            return send_from_directory(app.static_folder, path)
+        else:
+            logger.info("Serving React index.html")
+            return send_from_directory(app.static_folder, "index.html")
+    except Exception as e:
+        logger.error(f"Error serving React app: {e}")
+        return jsonify({"success": False, "message": "Error serving React app"}), 500
 
 # Login API
 @app.route("/api/login", methods=["POST"])
 def login_page():
-    data = request.json
-    user = User.query.filter_by(username=data.get("username")).first()
-    if user and check_password_hash(user.password, data.get("password")):
-        user_dict = {
-            "username": user.username,
-            "phone_number": user.phone_number,
-            "country": user.country,
-            "state": user.state,
-            "city": user.city,
-            "zip_code": user.zip_code,
-            "account_type": user.account_type,
-            "profile_image": user.profile_image,
-        }
-        response = convert_keys(user_dict, snake_to_camel)
-        return jsonify({"success": True, "user": response})
-    return jsonify({"success": False, "message": "Invalid username or password."}), 401
+    try:
+        data = request.json
+        logger.info(f"Login request received for username: {data.get('username')}")
+        user = User.query.filter_by(username=data.get("username")).first()
+        if user and check_password_hash(user.password, data.get("password")):
+            logger.info("User authenticated successfully.")
+            user_dict = {
+                "username": user.username,
+                "phone_number": user.phone_number,
+                "country": user.country,
+                "state": user.state,
+                "city": user.city,
+                "zip_code": user.zip_code,
+                "account_type": user.account_type,
+                "profile_image": user.profile_image,
+            }
+            response = convert_keys(user_dict, snake_to_camel)
+            return jsonify({"success": True, "user": response})
+        logger.warning("Invalid username or password.")
+        return jsonify({"success": False, "message": "Invalid username or password."}), 401
+    except Exception as e:
+        logger.error(f"Error in login endpoint: {e}")
+        return jsonify({"success": False, "message": "Internal server error"}), 500
 
 # Registration API
 @app.route("/api/register", methods=["POST"])
 def register():
     try:
         data = request.json
+        logger.info(f"Registration request received: {data}")
         data = convert_keys(data, camel_to_snake)
-        required_fields = [
-            "username", "password", "phone_number", "country", "state", "city", "zip_code", "account_type"
-        ]
+        required_fields = ["username", "password", "phone_number", "country", "state", "city", "zip_code", "account_type"]
         if not all(field in data for field in required_fields):
+            logger.error("Missing required fields in registration data.")
             return jsonify({"success": False, "message": "Missing required fields"}), 400
 
         if User.query.filter_by(username=data["username"]).first():
+            logger.warning(f"Username already exists: {data['username']}")
             return jsonify({"success": False, "message": "Username already exists."}), 409
 
         hashed_password = generate_password_hash(data["password"], method="pbkdf2:sha256")
-
         new_user = User(
             username=data["username"],
             password=hashed_password,
@@ -139,24 +155,24 @@ def register():
         )
         db.session.add(new_user)
         db.session.commit()
-
+        logger.info("User registered successfully.")
         return jsonify({"success": True, "message": "User registered successfully."}), 201
     except Exception as e:
-        logger.error(f"Error in /api/register: {e}")
+        logger.error(f"Error in registration endpoint: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
 
 # Pre-signed URL API
 @app.route("/api/get-presigned-url", methods=["POST"])
 def get_presigned_url():
-    data = request.json
-    filename = data.get("filename")
-    content_type = data.get("contentType", "application/octet-stream")
-
-    if not filename:
-        return jsonify({"success": False, "message": "Filename is required"}), 400
-
     try:
-        logger.info(f"Generating pre-signed URL for file: {filename}")
+        data = request.json
+        logger.info(f"Pre-signed URL request received: {data}")
+        filename = data.get("filename")
+        content_type = data.get("contentType", "application/octet-stream")
+        if not filename:
+            logger.error("Filename is required but not provided.")
+            return jsonify({"success": False, "message": "Filename is required"}), 400
+
         presigned_url = s3.generate_presigned_url(
             "put_object",
             Params={
@@ -166,6 +182,7 @@ def get_presigned_url():
             },
             ExpiresIn=3600,
         )
+        logger.info(f"Pre-signed URL generated: {presigned_url}")
         return jsonify({"url": presigned_url}), 200
     except Exception as e:
         logger.error(f"Error generating pre-signed URL: {e}")
@@ -199,6 +216,7 @@ def generate_signed_url(file_path):
             f"&Signature={encoded_signature}&Key-Pair-Id={CLOUDFRONT_KEY_PAIR_ID}"
         )
 
+        logger.info(f"Generated signed URL: {signed_url}")
         return signed_url
     except Exception as e:
         logger.error(f"Error generating signed URL: {e}")
@@ -207,13 +225,15 @@ def generate_signed_url(file_path):
 # CloudFront Signed URLs API
 @app.route("/api/get-signed-urls", methods=["POST"])
 def get_signed_urls():
-    data = request.json
-    account_type = data.get("accountType")
-
-    if not account_type:
-        return jsonify({"success": False, "message": "Account type is required"}), 400
-
     try:
+        data = request.json
+        logger.info(f"Signed URLs request received for account type: {data.get('accountType')}")
+        account_type = data.get("accountType")
+
+        if not account_type:
+            logger.error("Account type is required but not provided.")
+            return jsonify({"success": False, "message": "Account type is required"}), 400
+
         files = []
 
         # Regular content access without signed URLs
@@ -235,6 +255,7 @@ def get_signed_urls():
                         "url": signed_url
                     })
 
+        logger.info(f"Generated file list for account type {account_type}: {files}")
         return jsonify({"success": True, "files": files}), 200
     except Exception as e:
         logger.error(f"Error generating signed URLs: {e}")
@@ -243,4 +264,5 @@ def get_signed_urls():
 if __name__ == "__main__":
     with app.app_context():
         db.create_all()
+    logger.info("Starting Flask application...")
     app.run(host="0.0.0.0", port=5000, debug=True)
