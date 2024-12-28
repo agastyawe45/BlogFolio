@@ -8,6 +8,7 @@ import {
   Switch,
   FormControlLabel,
   CircularProgress,
+  LinearProgress,
 } from "@mui/material";
 import axios from "axios";
 import PhoneInput from "react-phone-input-2";
@@ -27,30 +28,31 @@ const Register = () => {
   });
 
   const [profileImage, setProfileImage] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Function to validate the selected image
+  const validateImage = (file) => {
+    if (!file) {
+      setMessage("Please select a profile image.");
+      return false;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setMessage("Image size exceeds 10 MB.");
+      return false;
+    }
+    if (!["image/jpeg", "image/png", "image/gif"].includes(file.type)) {
+      setMessage("Invalid image type. Allowed types: jpeg, png, gif.");
+      return false;
+    }
+    return true;
+  };
 
   // Function to handle profile image upload to S3 via pre-signed URL
   const handleImageUpload = async () => {
     console.log("Starting image upload...");
-
-    if (!profileImage) {
-      console.warn("No profile image selected.");
-      setMessage("Please select a profile image.");
-      return null;
-    }
-
-    // Validate file size and type
-    if (profileImage.size > 10 * 1024 * 1024) {
-      console.error("Image size exceeds the limit of 10 MB.");
-      setMessage("Image size exceeds 10 MB.");
-      return null;
-    }
-    if (!["image/jpeg", "image/png", "image/gif"].includes(profileImage.type)) {
-      console.error("Invalid image type selected.");
-      setMessage("Invalid image type. Allowed types: jpeg, png, gif.");
-      return null;
-    }
+    if (!profileImage || !validateImage(profileImage)) return null;
 
     try {
       console.log("Requesting pre-signed URL for image upload...");
@@ -61,27 +63,45 @@ const Register = () => {
 
       console.log("Pre-signed URL received:", response.data.url);
 
-      console.log("Uploading image to S3...");
-      const uploadResponse = await fetch(response.data.url, {
-        method: "PUT",
-        body: profileImage,
-        headers: {
-          "Content-Type": profileImage.type,
-        },
-      });
-
-      if (!uploadResponse.ok) {
-        console.error("Image upload to S3 failed.");
-        throw new Error("Failed to upload file to S3.");
-      }
-
-      console.log("Image uploaded successfully.");
-      return response.data.url.split("?")[0];
+      return await uploadToS3(response.data.url, profileImage);
     } catch (error) {
       console.error("Error during image upload:", error.message);
       setMessage("Failed to upload profile image.");
       return null;
     }
+  };
+
+  // Function to upload an image to S3 using a pre-signed URL
+  const uploadToS3 = async (preSignedUrl, file) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", preSignedUrl, true);
+      xhr.setRequestHeader("Content-Type", file.type);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          const percentComplete = Math.round((event.loaded / event.total) * 100);
+          setUploadProgress(percentComplete);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status === 200) {
+          console.log("Image uploaded successfully.");
+          resolve(preSignedUrl.split("?")[0]); // Return the public URL of the uploaded file
+        } else {
+          console.error("Image upload to S3 failed.");
+          reject(new Error("Failed to upload file to S3."));
+        }
+      };
+
+      xhr.onerror = () => {
+        console.error("An error occurred during the upload.");
+        reject(new Error("Upload error."));
+      };
+
+      xhr.send(file);
+    });
   };
 
   // Handle form submission for user registration
@@ -93,7 +113,6 @@ const Register = () => {
 
     // Validate password match
     if (formData.password !== formData.confirmPassword) {
-      console.error("Passwords do not match.");
       setMessage("Passwords do not match.");
       setIsSubmitting(false);
       return;
@@ -102,7 +121,6 @@ const Register = () => {
     // Upload the profile image to S3
     const s3ImageUrl = await handleImageUpload();
     if (!s3ImageUrl) {
-      console.error("Image upload failed. Aborting registration.");
       setIsSubmitting(false);
       return;
     }
@@ -115,8 +133,8 @@ const Register = () => {
       });
 
       if (response.data.success) {
-        console.log("User registered successfully:", response.data);
         setMessage("User registered successfully!");
+        console.log("User registered successfully:", response.data);
 
         // Reset form and image state
         setFormData({
@@ -131,9 +149,10 @@ const Register = () => {
           accountType: "Regular",
         });
         setProfileImage(null);
+        setUploadProgress(0);
       } else {
-        console.warn("Registration failed:", response.data.message);
         setMessage(response.data.message || "Registration failed.");
+        console.warn("Registration failed:", response.data.message);
       }
     } catch (error) {
       console.error("Error during registration:", error.message);
@@ -162,8 +181,9 @@ const Register = () => {
               type="file"
               accept=".jpeg, .jpg, .png, .gif"
               onChange={(e) => {
-                console.log("Selected profile image:", e.target.files[0]);
                 setProfileImage(e.target.files[0]);
+                setUploadProgress(0);
+                console.log("Selected profile image:", e.target.files[0]);
               }}
             />
             <Typography variant="body2">
@@ -175,83 +195,58 @@ const Register = () => {
               control={
                 <Switch
                   checked={formData.accountType === "Premium"}
-                  onChange={(e) => {
-                    const accountType = e.target.checked ? "Premium" : "Regular";
-                    console.log("Account type changed to:", accountType);
-                    setFormData({ ...formData, accountType });
-                  }}
+                  onChange={(e) =>
+                    setFormData({ ...formData, accountType: e.target.checked ? "Premium" : "Regular" })
+                  }
                 />
               }
               label="Premium"
             />
           </Box>
         </Box>
+        {uploadProgress > 0 && <LinearProgress variant="determinate" value={uploadProgress} />}
         <Box mt={3} display="grid" gap={2} gridTemplateColumns="repeat(2, 1fr)">
           <TextField
             label="Username"
             value={formData.username}
-            onChange={(e) => {
-              console.log("Username changed to:", e.target.value);
-              setFormData({ ...formData, username: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
           />
           <PhoneInput
             country={"us"}
             value={formData.mobileNumber}
-            onChange={(phone) => {
-              console.log("Mobile number changed to:", phone);
-              setFormData({ ...formData, mobileNumber: phone });
-            }}
+            onChange={(phone) => setFormData({ ...formData, mobileNumber: phone })}
           />
           <TextField
             label="Country"
             value={formData.country}
-            onChange={(e) => {
-              console.log("Country changed to:", e.target.value);
-              setFormData({ ...formData, country: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, country: e.target.value })}
           />
           <TextField
             label="State"
             value={formData.state}
-            onChange={(e) => {
-              console.log("State changed to:", e.target.value);
-              setFormData({ ...formData, state: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, state: e.target.value })}
           />
           <TextField
             label="City"
             value={formData.city}
-            onChange={(e) => {
-              console.log("City changed to:", e.target.value);
-              setFormData({ ...formData, city: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
           />
           <TextField
             label="Zip Code"
             value={formData.zipCode}
-            onChange={(e) => {
-              console.log("Zip Code changed to:", e.target.value);
-              setFormData({ ...formData, zipCode: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, zipCode: e.target.value })}
           />
           <TextField
             label="Password"
             type="password"
             value={formData.password}
-            onChange={(e) => {
-              console.log("Password updated.");
-              setFormData({ ...formData, password: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
           />
           <TextField
             label="Re-enter Password"
             type="password"
             value={formData.confirmPassword}
-            onChange={(e) => {
-              console.log("Confirm password updated.");
-              setFormData({ ...formData, confirmPassword: e.target.value });
-            }}
+            onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
           />
         </Box>
         <Button
