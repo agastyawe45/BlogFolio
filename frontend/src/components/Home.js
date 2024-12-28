@@ -7,31 +7,33 @@ const Home = ({ user }) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Fetch files from the backend based on the user's account type
   useEffect(() => {
     const fetchFiles = async () => {
+      console.log("Fetching accessible files for user:", user);
+
       setIsLoading(true);
       setError("");
 
       try {
-        console.log("Fetching signed URLs for account type:", user.accountType);
-
-        // Fetch signed URLs from the backend
-        const response = await axios.post(`/api/get-signed-urls`, {
+        console.log("Sending request to fetch signed URLs for account type:", user.accountType);
+        const response = await axios.post("/api/get-signed-urls", {
           accountType: user.accountType,
         });
 
-        console.log("Files fetched successfully:", response.data);
-
         if (response.data.success) {
+          console.log("Files fetched successfully:", response.data.files);
           setFiles(response.data.files);
         } else {
+          console.warn("Failed to fetch files:", response.data.message);
           setError(response.data.message || "Failed to fetch files.");
         }
       } catch (err) {
-        console.error("Error fetching signed URLs:", err);
+        console.error("Error while fetching files:", err.response?.data || err.message);
         setError("Error fetching files. Please try again later.");
       } finally {
         setIsLoading(false);
+        console.log("File fetching process completed.");
       }
     };
 
@@ -53,6 +55,7 @@ const Home = ({ user }) => {
         <Typography variant="h4" gutterBottom>
           Welcome, {user.username}!
         </Typography>
+
         <Typography>Email: {user.email}</Typography>
         <Typography>Account Type: {user.accountType}</Typography>
 
@@ -60,9 +63,11 @@ const Home = ({ user }) => {
           <Typography variant="h6" gutterBottom>
             Accessible Files:
           </Typography>
+
           {isLoading ? (
             <Box display="flex" justifyContent="center" mt={3}>
               <CircularProgress />
+              <Typography>Loading files...</Typography>
             </Box>
           ) : error ? (
             <Typography color="error">{error}</Typography>
@@ -85,6 +90,7 @@ const Home = ({ user }) => {
                   href={file.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => console.log(`File clicked: ${file.name} (URL: ${file.url})`)}
                 >
                   View
                 </Button>
