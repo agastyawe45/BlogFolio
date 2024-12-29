@@ -183,6 +183,7 @@ def get_presigned_url():
                 "ContentType": content_type,
             },
             ExpiresIn=3600,
+            HttpMethod="PUT"
         )
         logger.info(f"Pre-signed URL generated: {presigned_url}")
         return jsonify({"url": presigned_url}), 200
