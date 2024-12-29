@@ -75,7 +75,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password = db.Column(db.String(120), nullable=False)
-    phone_number = db.Column(db.String(20), nullable=False)
+    mobile_number = db.Column(db.String(20), nullable=False)
     country = db.Column(db.String(50), nullable=False)
     state = db.Column(db.String(50), nullable=False)
     city = db.Column(db.String(50), nullable=False)
@@ -109,13 +109,13 @@ def login_page():
             logger.info("User authenticated successfully.")
             user_dict = {
                 "username": user.username,
-                "phone_number": user.phone_number,
+                "mobileNumber": user.mobile_number,
                 "country": user.country,
                 "state": user.state,
                 "city": user.city,
-                "zip_code": user.zip_code,
-                "account_type": user.account_type,
-                "profile_image": user.profile_image,
+                "zipCode": user.zip_code,
+                "accountType": user.account_type,
+                "profileImage": user.profile_image,
             }
             response = convert_keys(user_dict, snake_to_camel)
             return jsonify({"success": True, "user": response})
@@ -132,7 +132,7 @@ def register():
         data = request.json
         logger.info(f"Registration request received: {data}")
         data = convert_keys(data, camel_to_snake)
-        required_fields = ["username", "password", "phone_number", "country", "state", "city", "zip_code", "account_type"]
+        required_fields = ["username", "password", "mobile_number", "country", "state", "city", "zip_code", "account_type"]
         if not all(field in data for field in required_fields):
             logger.error("Missing required fields in registration data.")
             return jsonify({"success": False, "message": "Missing required fields"}), 400
@@ -145,7 +145,7 @@ def register():
         new_user = User(
             username=data["username"],
             password=hashed_password,
-            phone_number=data["phone_number"],
+            mobile_number=data["mobile_number"],
             country=data["country"],
             state=data["state"],
             city=data["city"],
@@ -160,6 +160,8 @@ def register():
     except Exception as e:
         logger.error(f"Error in registration endpoint: {e}")
         return jsonify({"success": False, "message": "Internal Server Error"}), 500
+
+# Additional APIs (e.g., for S3 signed URLs) remain as implemented.
 
 # Pre-signed URL API
 @app.route("/api/get-presigned-url", methods=["POST"])
